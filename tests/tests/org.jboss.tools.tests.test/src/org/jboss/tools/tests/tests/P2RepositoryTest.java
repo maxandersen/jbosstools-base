@@ -1,15 +1,23 @@
 package org.jboss.tools.tests.tests;
 
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.everyItem;
+import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertThat;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
+import java.util.Set;
 
 import org.eclipse.core.runtime.IProgressMonitor;
 import org.eclipse.core.runtime.IStatus;
@@ -35,34 +43,71 @@ import org.junit.runners.Parameterized.Parameters;
 public class P2RepositoryTest {
 
 
-	@Parameters(name = "{0}")
-	static public Collection<URI[]> getLocations() throws URISyntaxException {
+	@Parameters(name = "Check {0}")
+	static public Collection<URI[]> getLocations() throws URISyntaxException, IOException {
 		
 		
-		URI[] params = new URI[] {
-				new URI("https://devstudio.jboss.com/updates/8.0-development/integration-stack/"),
-				new URI("https://devstudio.jboss.com/updates/7.0/integration-stack/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/luna/"),
-				new URI("http://download.jboss.org/jbosstools/updates/nightly/luna/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/kepler/"),
-				new URI("http://download.jboss.org/jbosstools/updates/nightly/core/4.1.kepler/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/juno/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/indigo/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/helios/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/galileo/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/ganymede/"),
-				new URI("http://download.jboss.org/jbosstools/updates/development/luna/integration-stack/"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/kepler/integration-stack"),
-				new URI("http://download.jboss.org/jbosstools/updates/stable/indigo/soa-tooling/"),
-		};
-		List<URI[]> result = new ArrayList<URI[]>();
+		Set<URI> urls = new LinkedHashSet<>();
+		urls.add(new URI("https://devstudio.redhat.com/updates/8.0-development/integration-stack/"));
+		urls.add(new URI("https://devstudio.redhat.com/updates/7.0/integration-stack/"));
+		urls.add(new URI("https://devstudio.redhat.com/updates/8.0-development/"));
+		urls.add(new URI("https://devstudio.redhat.com/updates/7.0/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/luna/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/nightly/luna/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/kepler/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/nightly/core/4.1.kepler/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/juno/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/indigo/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/helios/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/galileo/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/ganymede/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/development/luna/integration-stack/"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/kepler/integration-stack"));
+		urls.add(new URI("http://download.jboss.org/jbosstools/updates/stable/indigo/soa-tooling/"));
+
+		Properties p = IDEPropertiesSanityTest.loadIDEProperties();
+		urls.addAll(getP2ReposFromProperties(p));
 		
-		for (URI uri : params) {
-			result.add(new URI[] { uri} );
+		Set<URI[]> result = new LinkedHashSet<>(urls.size());
+		
+		for (URI uri : urls) {
+			result.add(new URI[] {uri} );
 		}
+		
 		return result;
 	}
 	
+	private static Collection<URI> getP2ReposFromProperties(Properties properties) throws IOException {
+		if (properties == null) {
+		  return Collections.emptySet();	
+		}
+		Set<URI> uris = new LinkedHashSet<>();
+		for (Entry entry : properties.entrySet()) {
+			String key = (String)entry.getKey();
+			if (!key.contains(".discovery.site.")) {
+				continue;
+			}
+			String value = (String)entry.getValue();
+			URI uri = asUri(value);
+			if (uri != null) {
+				System.err.println("Retaining "+key);
+				uris.add(uri);
+			}
+		}
+		
+		return uris;
+	}
+
+	private static URI asUri(String url) {
+		if (url != null) {
+			try {
+				return new URI(url);
+			} catch (URISyntaxException ignored){
+			}
+		}
+		return null;
+	}
+
 	@Parameter
 	public URI location;
 	
@@ -85,8 +130,8 @@ public class P2RepositoryTest {
 			}
 		};
 	
-		errors = new ArrayList<IStatus>();
-		allrepositories = new HashMap<URI, IMetadataRepository>();
+		errors = new ArrayList<>();
+		allrepositories = new HashMap<>();
 		
 		repository = loadRepository(repositoryManager, allrepositories, 
 				location, false, errors, ipm);
@@ -102,8 +147,8 @@ public class P2RepositoryTest {
 	@Test
 	public void noErrors() throws ProvisionException, OperationCanceledException,
 			URISyntaxException {
-		assertThat("Errors while loading", errors, IsEmptyCollection.empty());
-	}	
+		assertThat("Errors while loading " + errors, errors, IsEmptyCollection.empty());
+	}
 
 	@Test
 	public void noStreamCrossing() {
@@ -115,8 +160,7 @@ public class P2RepositoryTest {
 	
 	@Test
 	public void isNotEmpty() {
-		assertThat(repository.getReferences(), IsEmptyCollection.empty());
-		
+		assertThat(repository.getReferences(), not(empty()));
 	}
 	
 	Matcher<URI> hasHost(final String host) {
@@ -138,6 +182,7 @@ public class P2RepositoryTest {
 			
 		   };
 	}
+	@SuppressWarnings("restriction")
 	private IMetadataRepository loadRepository(IMetadataRepositoryManager repoMgr,
 			Map<URI, IMetadataRepository> allrepositories, URI location,
 			boolean refresh, List<IStatus> errors, IProgressMonitor monitor)

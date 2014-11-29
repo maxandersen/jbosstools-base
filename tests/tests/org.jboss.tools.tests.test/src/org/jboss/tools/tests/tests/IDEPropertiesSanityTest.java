@@ -46,30 +46,28 @@ import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class IDEPropertiesSanityTest {
 
+	static public Properties loadIDEProperties() throws IOException {
 
-	/**
-	 * Returns each key, value in properties
-	 * 
-	 * @return
-	 * @throws IOException
-	 */
+		URL url = new URL(IDEPropertiesConstants.PROPERTIES_LOCATION);
+
+		Properties rawProperties = new Properties();
+
+		try (InputStream in = url.openStream()) {
+			Reader reader = new InputStreamReader(in, "UTF-8");
+			rawProperties.load(reader);
+		}
+
+		return rawProperties;
+	}
+
+	
 	@SuppressWarnings({ "rawtypes" })
 	@Parameters(name = "{0}")
 	static public Collection<String[]> getIDEProperties() throws IOException {
 
-		URL url = new URL(IDEPropertiesConstants.PROPERTIES_LOCATION);
-		InputStream in = url.openStream();
-		Reader reader = new InputStreamReader(in, "UTF-8");
+		Properties rawProperties = loadIDEProperties();
 
-		Properties rawProperties = new Properties();
-
-		try {
-			rawProperties.load(reader);
-		} finally {
-			reader.close();
-		}
-
-		List<String[]> result = new ArrayList<String[]>(rawProperties.size());
+		List<String[]> result = new ArrayList<>(rawProperties.size());
 
 		for (Iterator iterator = rawProperties.entrySet().iterator(); iterator.hasNext();) {
 			Entry entry = (Entry) iterator.next();
